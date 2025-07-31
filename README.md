@@ -7,7 +7,7 @@ This project focuses on extracting structured field-value pairs from invoice ima
 ### Key Points
 
 - **Model:** LayoutLMv3 (pretrained and fine-tuned for invoice field extraction)
-- **Dataset:** FATURA — a rich collection of 10,000+ invoices with detailed bounding box annotations and ground-truth key-value pairs
+- **Dataset:** FATURA (dataset link: [https://zenodo.org/records/8261508]) — a rich collection of 10,000+ invoices with detailed bounding box annotations and ground-truth key-value pairs
 - **Approach:** Convert original annotation format into BIO-tagged tokens aligned with OCR-extracted words, allowing token classification fine-tuning with LayoutLMv3
 - **Evaluation:** Token-level precision, recall, and F1 on held-out test data
 
