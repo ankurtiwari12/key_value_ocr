@@ -55,27 +55,16 @@ def ocr_with_pytesseract(img_path):
 
 
 def group_entities(words, preds, id2label):
-    # Convert id2label keys to int for consistent lookup
+    # Handles labels as simple ints or strings (e.g., "0", "1", ...)
     id2label_int = {int(k): v for k, v in id2label.items()}
     entities = {}
-    current_field, buffer = None, []
-
     for word, pred_id in zip(words, preds):
-        label = id2label_int.get(pred_id, "O")  # default to O if unknown
+        label = id2label_int.get(pred_id, "O")
         if label == "O":
-            if current_field:
-                entities.setdefault(current_field, []).append(" ".join(buffer))
-            current_field, buffer = None, []
             continue
-        tag, field = label.split("-", 1)
-        if tag == "B" or field != current_field:
-            if current_field:
-                entities.setdefault(current_field, []).append(" ".join(buffer))
-            current_field, buffer = field, [word]
-        else:  # tag == "I" and same field
-            buffer.append(word)
-    if current_field:
-        entities.setdefault(current_field, []).append(" ".join(buffer))
+        entities.setdefault(label, []).append(word)
+    # Join consecutive tokens for each field
+    entities = {k: [" ".join(v)] for k, v in entities.items()}
     return entities
 
 

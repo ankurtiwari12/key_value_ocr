@@ -29,23 +29,7 @@ num_ids = max_id + 1
 
 # ----- 2. Build label names -----
 # Start with default names, then overwrite with your preferred mapping
-LABELS = [f"LABEL_{i}" for i in range(num_ids)]
-LABELS[0] = "O"   # index 0 should always be 'Outside' or 'Other'
-
-# Overwrite with real field names where provided
-nice_names = {
-    1: "B-VENDOR",   2: "I-VENDOR",
-    3: "B-DATE",     4: "I-DATE",
-    5: "B-TOTAL",    6: "I-TOTAL",
-    7: "B-INVOICE_NO", 8: "I-INVOICE_NO",
-    9: "B-SUB_TOTAL", 10: "I-SUB_TOTAL",
-    11: "B-TAX",     12: "I-TAX",
-    13: "B-ADDRESS", 14: "I-ADDRESS"
-    # Extend this dict as needed to cover all present field types in your dataset!
-}
-for idx, name in nice_names.items():
-    if idx < len(LABELS):
-        LABELS[idx] = name
+LABELS = ["O"] + [f"LABEL_{str(i)}" for i in range(1, num_ids)]
 
 print(f"Detected {num_ids} label IDs (0 – {max_id}).")
 for idx, name in enumerate(LABELS):

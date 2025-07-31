@@ -1,15 +1,12 @@
-# Invoice Field-Value Extraction using LayoutLMv3 and FATURA Dataset
+# Invoice Field-Value Extraction with LayoutLMv3 (FATURA Dataset, Label Indices)
 
-## Project Overview
+## Project Objective
 
-This project focuses on extracting structured field-value pairs from invoice images using the state-of-the-art multimodal transformer model **LayoutLMv3**. The goal is to automate invoice data extraction for fields like invoice number, vendor, date, total amount, tax, and address with high accuracy, leveraging both textual and spatial layout features of documents.
+Extract field-value pairs from invoice images using the LayoutLMv3 transformer, focusing on direct field index labels (e.g., `"1"`, `"2"`, etc.)—no business field mapping—for out-of-the-box deployment or testing on unknown schemas.
 
-### Key Points
-
-- **Model:** LayoutLMv3 (pretrained and fine-tuned for invoice field extraction)
-- **Dataset:** FATURA (dataset link: [https://zenodo.org/records/8261508]) — a rich collection of 10,000+ invoices with detailed bounding box annotations and ground-truth key-value pairs
-- **Approach:** Convert original annotation format into BIO-tagged tokens aligned with OCR-extracted words, allowing token classification fine-tuning with LayoutLMv3
-- **Evaluation:** Token-level precision, recall, and F1 on held-out test data
+**Model:** LayoutLMv3  
+**Dataset:** FATURA [https://zenodo.org/records/8261508] (layoutlm_HF_format, with raw indices or default label names as tags)  
+**Use Case:** Benchmarking extraction with integer-label fields, or where explicit field-names are unknown/unmapped.
 
 ---
 
@@ -18,100 +15,122 @@ This project focuses on extracting structured field-value pairs from invoice ima
 project-root/
 │
 ├── data/
-│ ├── fatura_raw/ # Raw FATURA dataset after download & extraction
-│ │ ├── Images/ # Invoice images (JPEG)
+│ ├── fatura_raw/ # FATURA raw data (images & annotations)
+│ │ ├── Images/ # Invoice images (.jpg)
 │ │ └── invoices_dataset_final/
 │ │ └── Annotations/
-│ │ ├── Original_Format/ # Raw JSON annotations — highest quality source
-│ │ ├── layoutlm_HF_format/
-│ │ └── COCO_compatible_format/
-│ └── fatura_hf/ # Processed Hugging Face dataset, BIO tags, 5k samples split
+│ │ ├── layoutlm_HF_format/ # JSONs with path, words, indices/bboxes/ner_tags
+│ └── fatura_hf/ # Hugging Face DatasetDict (ready for LayoutLM)
 │
-├── model_out/ # Directory for fine-tuned models & processor save
+├── model_out/ # Fine-tuned model checkpoint directory
 │ └── best/
 │
-├── scripts/ # All main scripts
-│ ├── 1_download_fatura.py # Download & unzip FATURA dataset
-│ ├── prepare_hf_from_original.py # Convert Original_Format JSONs to HF dataset with BIO tags (5k samples)
-│ ├── 3_train.py # Fine-tune LayoutLMv3 on prepared dataset
-│ ├── 4_evaluate.py # Evaluate trained model on test set (token-level metrics)
-│ └── 5_infer_single.py # Single invoice image inference using pytesseract + LayoutLMv3
+├── scripts/
+│ ├── 1_download_fatura.py # Download/unzip FATURA data
+│ ├── 2_prepare_hf_dataset.py # Prepare dataset from layoutlm_HF_format (no mapping)
+│ ├── 3_train.py # Fine-tune LayoutLMv3 on dataset
+│ ├── 4_evaluate.py # Evaluate performance on test set
+│ └── 5_infer_single.py # Inference: extract values from a single invoice image
 │
-├── requirements.txt # Python dependencies for environment setup
-└── README.md # This file
+├── requirements.txt
+└── README.md
 
+text
 
 ---
 
-## Setup Instructions
+## Getting Started
 
-### 1. Install Python dependencies
-
-Recommend Python 3.8+ environment.  
-Install required packages:
+### 1. Environment Setup
 
 pip install -r requirements.txt
 
+text
 
-### 2. Download & Prepare Dataset
+**Requirements include:**  
+- Python 3.8+
+- torch, torchvision  
+- transformers, datasets, pillow, pytesseract, tqdm  
+- Install Tesseract OCR on your OS (`sudo apt install tesseract-ocr` on Ubuntu)
 
-Download and unzip the FATURA dataset
+### 2. Dataset Preparation
 
+#### a. Download and Unpack FATURA
 
-Convert the high-quality `Original_Format` annotations into a BIO-tagged Hugging Face dataset (limit to 5,000 samples, split 3k train / 1k val / 1k test):
+python scripts/1_download_fatura.py
 
-python scripts/prepare_hf_from_original.py
+text
 
+#### b. Create HF Dataset with Label Indices
 
-### 3. Train LayoutLMv3 Model
+Edit `scripts/2_prepare_hf_dataset.py` to include:
 
-Fine-tune the model on your prepared dataset:
+LABELS = ["O"] + [str(i) for i in range(1, num_ids)]
+...do not set up or use a nice_names dictionary...
 
+text
 
-Set env var to reduce CUDA fragmentation, run on GPU 0
+Then build the dataset:
+
+python scripts/2_prepare_hf_dataset.py
+
+text
+
+### 3. Fine-tune the Model
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 CUDA_VISIBLE_DEVICES=0 python scripts/3_train.py
 
+text
 
-### 4. Evaluate Model
+*You can reduce the number of training examples or batch size if on a small GPU.*
 
-Evaluate token-level precision, recall, and F1 on the test split:
-
+### 4. Evaluation
 
 python scripts/4_evaluate.py
 
+text
+Outputs token-level metrics for each class index.
 
-### 5. Run Inference on Single Invoice Image
-
-Run inference on a new single image, outputs extracted field-value pairs:
-
-
+### 5. Inference on a Single Image
 
 python scripts/5_infer_single.py path/to/invoice.jpg
 
+text
+
+**You will see outputs like:**
+
+{
+"1": ["Acme Corporation"],
+"2": ["2025-08-01"],
+...
+}
+
+text
+Each key (`"1"`, `"2"`, etc.) corresponds to a field index as in your dataset.
 
 ---
 
-## Notes and Recommendations
+## Notes
 
-- The dataset preparation script only processes 5,000 invoices for efficient training. Adjust `DESIRED_TOTAL` in `prepare_hf_from_original.py` if you want more.
-- BIO tags are generated by overlapping OCR tokens with annotated bounding boxes from FATURA’s `Original_Format`.
-- GPU with at least ~4GB VRAM recommended for training.
-- Ensure Tesseract OCR engine is installed on your system (`sudo apt install tesseract-ocr` on Ubuntu).
-- The pipeline is extensible to other document types by adapting the annotation converter.
+- The system does **not require or use explicit field names**; it will output label indices as specified in the input annotations.
+- To turn indices into field names (e.g., `"1"` → `VENDOR`), supply a mapping file and update the `LABELS` list in `2_prepare_hf_dataset.py` before re-training.
+- If you switch to business field labels, adjust only the dataset prep script; all other scripts will use the new names automatically.
+- For custom visualizations, you may post-process the output as needed by referencing your `LABELS` list.
 
 ---
 
 ## References
 
-- [LayoutLMv3 Paper (2022)](https://arxiv.org/abs/2204.08387)  
-- FATURA Dataset: [Original dataset source provided by the user]  
-- Hugging Face Transformers & Datasets: https://huggingface.co/docs/transformers/ and https://huggingface.co/docs/datasets/
+- FATURA dataset: see project data directory and user instructions
+- [LayoutLMv3 model (Hugging Face)](https://huggingface.co/microsoft/layoutlmv3-base)
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
 
 ---
 
-Feel free to raise issues or contribute improvements!
+## Troubleshooting
 
----  
+- **"not enough values to unpack" error in inference**: Your `5_infer_single.py` should aggregate words only by the predicted label index (see latest update in group_entities function; do NOT attempt to split on "-").
+- **KeyError in field mapping**: This cannot happen in this mode; all keys are simple label indices.
 
+---
